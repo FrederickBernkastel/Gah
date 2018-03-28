@@ -17,6 +17,8 @@ import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 public class Server{
 	private enum CP {
@@ -56,6 +58,11 @@ public class Server{
 			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 			PrivateKey myPrivKey = keyFactory.generatePrivate(keySpec);
 			
+			// Generate Symmetric key
+			KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+			keyGen.init(128);
+			SecretKey mySymmKey = keyGen.generateKey();
+			
 			// Wait for client to initiate id req
 			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
 				if(br.readLine().equals(StringMessages.CLIENT_ID_REQ)) {
@@ -86,6 +93,10 @@ public class Server{
 					break;
 				case StringMessages.CLIENT_CP2_HANDSHAKE:
 					protocol = CP.CP2;
+					// Send Encrypted Symm key for CP2
+					encryptedMessage = encrypt(myPrivKey,mySymmKey.toString());
+					toClient.write(encryptedMessage);
+					toClient.flush();
 					break;
 				case StringMessages.CLIENT_END_REQ:
 					fromClient.close();
@@ -127,11 +138,11 @@ public class Server{
 					fromClient.read(block);
 					
 					if (numBytes > 0)
-						// TODO: Decrypt data block
+						// Decrypt data block
 						if (protocol == CP.CP1) {
 							block = decrypt(myPrivKey,block);
 						} else if (protocol == CP.CP2) {
-							
+							block = decrypt(mySymmKey,block);
 						}
 						bufferedFileOutputStream.write(block, 0, numBytes);
 
@@ -150,17 +161,33 @@ public class Server{
 		} catch (Exception e) {e.printStackTrace();}
 
 	}
+	// Encryption methods
 	public static byte[] encrypt(PrivateKey privateKey, String message) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");  
         cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
 
         return cipher.doFinal(message.getBytes());  
 	}
+	public static byte[] encrypt(SecretKey privateKey, String message) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES");  
+        cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
+
+        return cipher.doFinal(message.getBytes());  
+	}
+	
+	// Decryption methods
 	public static byte[] decrypt(PrivateKey privateKey, byte [] encrypted) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");  
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         
         return cipher.doFinal(encrypted);
-}
+	}
+	
+	public static byte[] decrypt(SecretKey privateKey, byte [] encrypted) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES");  
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
+        
+        return cipher.doFinal(encrypted);
+	}
 
 }
