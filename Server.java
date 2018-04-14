@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -63,16 +64,26 @@ public class Server{
 			keyGen.init(128);
 			SecretKey mySymmKey = keyGen.generateKey();
 			
-			// Wait for client to initiate id req
+			// Wait for client to initiate id req and send nonce
+			
 			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
 				if(br.readLine().equals(StringMessages.CLIENT_ID_REQ)) {
+					int numBytes = fromClient.readInt();
+					byte[] nonce = new byte[numBytes];
+					fromClient.read(nonce);
+					
+					// Encrypt nonce with private key, and send message
+					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,new String(nonce));
+					toClient.write(encryptedMessage);
+					toClient.flush();
 					break;
 				}
 			}
-			// Encrypt message with private key, and send message
-			byte[] encryptedMessage = encrypt(myPrivKey,StringMessages.SERVER_ID_REQ_REPLY);
-			toClient.write(encryptedMessage);
-			toClient.flush();
+			
+			// 
+			
+			
+			
 			
 			// Wait for client to initiate cert req
 			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
@@ -94,7 +105,7 @@ public class Server{
 				case StringMessages.CLIENT_CP2_HANDSHAKE:
 					protocol = CP.CP2;
 					// Send Encrypted Symm key for CP2
-					encryptedMessage = encrypt(myPrivKey,mySymmKey.toString());
+					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,mySymmKey.toString());
 					toClient.write(encryptedMessage);
 					toClient.flush();
 					break;
@@ -140,9 +151,9 @@ public class Server{
 					if (numBytes > 0)
 						// Decrypt data block
 						if (protocol == CP.CP1) {
-							block = decrypt(myPrivKey,block);
+							block = Crypto.decrypt(myPrivKey,block);
 						} else if (protocol == CP.CP2) {
-							block = decrypt(mySymmKey,block);
+							block = Crypto.decrypt(mySymmKey,block);
 						}
 						bufferedFileOutputStream.write(block, 0, numBytes);
 
@@ -161,33 +172,6 @@ public class Server{
 		} catch (Exception e) {e.printStackTrace();}
 
 	}
-	// Encryption methods
-	public static byte[] encrypt(PrivateKey privateKey, String message) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");  
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
 
-        return cipher.doFinal(message.getBytes());  
-	}
-	public static byte[] encrypt(SecretKey privateKey, String message) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");  
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
-
-        return cipher.doFinal(message.getBytes());  
-	}
-	
-	// Decryption methods
-	public static byte[] decrypt(PrivateKey privateKey, byte [] encrypted) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA");  
-        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-        
-        return cipher.doFinal(encrypted);
-	}
-	
-	public static byte[] decrypt(SecretKey privateKey, byte [] encrypted) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES");  
-        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-        
-        return cipher.doFinal(encrypted);
-	}
 
 }
