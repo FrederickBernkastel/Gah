@@ -74,6 +74,8 @@ public class Server{
 					
 					// Encrypt nonce with private key, and send message
 					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,new String(nonce));
+					toClient.writeInt(encryptedMessage.length);
+					toClient.flush();
 					toClient.write(encryptedMessage);
 					toClient.flush();
 					break;
@@ -83,7 +85,7 @@ public class Server{
 			// 
 			
 			
-			
+			/*
 			
 			// Wait for client to initiate cert req
 			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
@@ -94,7 +96,7 @@ public class Server{
 			// Send cert to client
 			toClient.write(CAcert.getEncoded());
 			toClient.flush();
-			
+			*/
 			// Wait for result of client check
 			CP protocol = CP.CLEARTEXT;
 			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
@@ -106,6 +108,8 @@ public class Server{
 					protocol = CP.CP2;
 					// Send Encrypted Symm key for CP2
 					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,mySymmKey.toString());
+					toClient.writeInt(encryptedMessage.length);
+					toClient.flush();
 					toClient.write(encryptedMessage);
 					toClient.flush();
 					break;
