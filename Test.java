@@ -12,6 +12,7 @@ import java.util.Locale;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Test{
 	public static void main(String[] arg) {
@@ -47,7 +48,18 @@ public class Test{
 			SecretKey mySymmKey = keyGen.generateKey();
 			
 			// Load Test message
-			output = Crypto.decrypt(mySymmKey, Crypto.encrypt(mySymmKey, msg));
+			byte[] symmKey = mySymmKey.getEncoded();
+			symmKey = Crypto.encrypt(myPubKey, symmKey);
+			symmKey = Crypto.decrypt(myPrivKey, symmKey);
+			output = Crypto.decrypt(
+					mySymmKey, 
+					Crypto.encrypt(
+							new SecretKeySpec(
+									symmKey, 
+									0 , 
+									symmKey.length,
+									"AES"), 
+							msg));
 			if (!new String(output).equals(msg)){
 				throw new Exception("RSA encyption / decryption test failed");
 			}

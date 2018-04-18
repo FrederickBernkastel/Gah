@@ -18,11 +18,30 @@ public class Crypto{
 
         return cipher.doFinal(message.getBytes());  
 	}
+	
+	public static byte[] encrypt(PublicKey publicKey, byte[] message) throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");  
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey);  
+
+        return cipher.doFinal(message);  
+	}
+	public static byte[] encrypt(PrivateKey privKey, byte[] message) throws Exception {
+        Cipher cipher = Cipher.getInstance("RSA");  
+        cipher.init(Cipher.ENCRYPT_MODE, privKey);  
+
+        return cipher.doFinal(message);  
+	}
 	public static byte[] encrypt(SecretKey privateKey, String message) throws Exception {
         Cipher cipher = Cipher.getInstance("AES");  
         cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
 
         return cipher.doFinal(message.getBytes());  
+	}
+	public static byte[] encrypt(SecretKey privateKey, byte[] message) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES");  
+        cipher.init(Cipher.ENCRYPT_MODE, privateKey);  
+
+        return cipher.doFinal(message);  
 	}
 	
 	// Decryption methods

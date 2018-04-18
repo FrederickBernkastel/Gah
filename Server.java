@@ -41,11 +41,12 @@ public class Server{
 		BufferedOutputStream bufferedFileOutputStream = null;
 
 		try {
-			welcomeSocket = new ServerSocket(4321);
+			System.out.println("Establishing connection to client...");
+			welcomeSocket = new ServerSocket(43211);
 			connectionSocket = welcomeSocket.accept();
 			fromClient = new DataInputStream(connectionSocket.getInputStream());
 			toClient = new DataOutputStream(connectionSocket.getOutputStream());
-			
+			System.out.println("Established connection to client...");
 // START OF AUTHENTICATION PROTOCOL
 			// Load CA cert
 			InputStream fis = new FileInputStream("server.crt");
@@ -66,21 +67,29 @@ public class Server{
 			
 			// Wait for client to initiate id req and send nonce
 			
-			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
-				if(br.readLine().equals(StringMessages.CLIENT_ID_REQ)) {
+			
+				if(fromClient.readUTF().equals(StringMessages.CLIENT_ID_REQ)) {
 					int numBytes = fromClient.readInt();
 					byte[] nonce = new byte[numBytes];
 					fromClient.read(nonce);
 					
+
+					System.out.println("Received nonce");
 					// Encrypt nonce with private key, and send message
-					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,new String(nonce));
+					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,nonce);
+
+					System.out.println("Encrypted nonce");
 					toClient.writeInt(encryptedMessage.length);
+
+					System.out.println("Sent nonce length");
 					toClient.flush();
 					toClient.write(encryptedMessage);
 					toClient.flush();
-					break;
+				} else {
+					System.out.println("Connection terminated");
+					return;
 				}
-			}
+			
 			
 			// 
 			
@@ -99,15 +108,14 @@ public class Server{
 			*/
 			// Wait for result of client check
 			CP protocol = CP.CLEARTEXT;
-			for (BufferedReader br = new BufferedReader(new InputStreamReader(fromClient)); !connectionSocket.isClosed();) {
-				switch(br.readLine()) {
+			switch(fromClient.readUTF()) {
 				case StringMessages.CLIENT_CP1_HANDSHAKE:
 					protocol = CP.CP1;
 					break;
 				case StringMessages.CLIENT_CP2_HANDSHAKE:
 					protocol = CP.CP2;
 					// Send Encrypted Symm key for CP2
-					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,mySymmKey.toString());
+					byte[] encryptedMessage = Crypto.encrypt(myPrivKey,mySymmKey.getEncoded());
 					toClient.writeInt(encryptedMessage.length);
 					toClient.flush();
 					toClient.write(encryptedMessage);
@@ -119,50 +127,60 @@ public class Server{
 					connectionSocket.close();
 					return;
 				default:
-					continue;
+					fromClient.close();
+					toClient.close();
+					connectionSocket.close();
+					return;
 				}
-				break;
-			}
+
+			
 			
 				
 
 			
 // END OF AUTHENTICATION PROTOCOL
-			
+			int bCount = 0;
 			while (!connectionSocket.isClosed()) {
 
 				int packetType = fromClient.readInt();
-
+				
 				// If the packet is for transferring the filename
 				if (packetType == 0) {
 
 					System.out.println("Receiving file...");
 
 					int numBytes = fromClient.readInt();
+					
 					byte [] filename = new byte[numBytes];
 					fromClient.read(filename);
+					
 
-					fileOutputStream = new FileOutputStream("recv/"+new String(filename, 0, numBytes));
+					fileOutputStream = new FileOutputStream(new String(filename, 0, numBytes));
+					
 					bufferedFileOutputStream = new BufferedOutputStream(fileOutputStream);
 
 				// If the packet is for transferring a chunk of the file
 				} else if (packetType == 1) {
-
+					bCount++;
 					int numBytes = fromClient.readInt();
 					byte [] block = new byte[numBytes];
 					fromClient.read(block);
 					
-					if (numBytes > 0)
+					
+					if (numBytes > 0){
 						// Decrypt data block
 						if (protocol == CP.CP1) {
 							block = Crypto.decrypt(myPrivKey,block);
 						} else if (protocol == CP.CP2) {
 							block = Crypto.decrypt(mySymmKey,block);
 						}
-						bufferedFileOutputStream.write(block, 0, numBytes);
-
+						bufferedFileOutputStream.write(block, 0, block.length);
+					}
+					
+						
+						
 				} else if (packetType == 2) {
-
+					System.out.println(bCount);
 					System.out.println("Closing connection...");
 
 					if (bufferedFileOutputStream != null) bufferedFileOutputStream.close();
@@ -170,6 +188,7 @@ public class Server{
 					fromClient.close();
 					toClient.close();
 					connectionSocket.close();
+					break;
 				}
 
 			}
