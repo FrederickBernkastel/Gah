@@ -6,18 +6,17 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
-import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 
-import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
@@ -32,6 +31,13 @@ public class Server{
 	 */
 	public static void main(String[] args) {
 
+		System.out.print("Server is up with IP address: ");
+		try {
+			System.out.println(Inet4Address.getLocalHost().getHostAddress());
+		} catch(Exception e) {
+			System.out.println("Error getting IP address");
+		}
+		
 		ServerSocket welcomeSocket = null;
 		Socket connectionSocket = null;
 		DataOutputStream toClient = null;
@@ -43,7 +49,9 @@ public class Server{
 		try {
 			System.out.println("Establishing connection to client...");
 			welcomeSocket = new ServerSocket(43211);
+
 			connectionSocket = welcomeSocket.accept();
+			System.out.println("Connection to client established");
 			fromClient = new DataInputStream(connectionSocket.getInputStream());
 			toClient = new DataOutputStream(connectionSocket.getOutputStream());
 			System.out.println("Established connection to client...");
